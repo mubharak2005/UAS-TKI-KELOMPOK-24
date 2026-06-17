@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>STKI Wisata Indonesia</title>
+
+<style>
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:'Segoe UI',sans-serif;
+}
+
+body{
+    min-height:100vh;
+    background:linear-gradient(
+    135deg,
+    #0f172a,
+    #1e293b,
+    #334155);
+    padding:40px;
+    color:white;
+}
+
+.container{
+    max-width:1100px;
+    margin:auto;
+}
+
+.header{
+    text-align:center;
+    margin-bottom:30px;
+}
+
+.header h1{
+    font-size:42px;
+    margin-bottom:10px;
+}
+
+.header p{
+    color:#cbd5e1;
+    font-size:18px;
+}
+
+.info{
+    background:rgba(255,255,255,.08);
+    backdrop-filter:blur(10px);
+    border:1px solid rgba(255,255,255,.1);
+    padding:20px;
+    border-radius:20px;
+    margin-bottom:25px;
+}
+
+.search-box{
+    display:flex;
+    gap:15px;
+    margin-bottom:25px;
+}
+
+input{
+    flex:1;
+    padding:16px;
+    border:none;
+    border-radius:15px;
+    font-size:16px;
+}
+
+input:focus{
+    outline:none;
+}
+
+button{
+    padding:16px 30px;
+    border:none;
+    border-radius:15px;
+    background:#3b82f6;
+    color:white;
+    cursor:pointer;
+    font-size:16px;
+    transition:.3s;
+}
+
+button:hover{
+    background:#2563eb;
+    transform:translateY(-2px);
+}
+
+.results-grid{
+    display:grid;
+    gap:20px;
+}
+
+.card{
+    background:rgba(255,255,255,.08);
+    backdrop-filter:blur(12px);
+    border:1px solid rgba(255,255,255,.1);
+    border-radius:20px;
+    padding:20px;
+    transition:.3s;
+}
+
+.card:hover{
+    transform:translateY(-5px);
+    box-shadow:0 10px 25px rgba(0,0,0,.3);
+}
+
+.card h2{
+    color:#60a5fa;
+    margin-bottom:10px;
+}
+
+.card p{
+    color:#e2e8f0;
+    line-height:1.7;
+    margin-top:10px;
+}
+
+.badge{
+    display:inline-block;
+    padding:6px 12px;
+    background:#f59e0b;
+    border-radius:50px;
+    font-size:13px;
+}
+
+.score{
+    margin-top:15px;
+    display:inline-block;
+    background:#22c55e;
+    padding:8px 14px;
+    border-radius:50px;
+    font-weight:bold;
+}
+
+.footer{
+    text-align:center;
+    margin-top:30px;
+    color:#94a3b8;
+}
+
+@media(max-width:768px){
+
+.search-box{
+    flex-direction:column;
+}
+
+button{
+    width:100%;
+}
+
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="header">
+    <h1>🌴 STKI Wisata Indonesia</h1>
+    <p>
+        Sistem Temu Kembali Informasi Menggunakan
+        TF-IDF dan Cosine Similarity
+    </p>
+</div>
+
+<div class="info">
+    <b>Model:</b> TF-IDF + Cosine Similarity <br>
+    <b>Preprocessing:</b> Case Folding & Tokenization <br>
+    <b>Output:</b> Ranking Dokumen dan Skor Relevansi
+</div>
+
+<div class="search-box">
+
+<input
+type="text"
+id="query"
+placeholder="Contoh: pantai lampung">
+
+<button onclick="search()">
+🔍 Cari
+</button>
+
+</div>
+
+<div id="results"></div>
+
+<div class="footer">
+    UAS Sistem Temu Kembali Informasi (STKI)
+</div>
+
+</div>
+
+<script>
+
+// DATASET
+
+const documents = [
+
+{
+title:"Pantai Mutun",
+text:"Pantai indah di Lampung dengan pasir putih dan aktivitas snorkeling yang menarik."
+},
+
+{
+title:"Way Kambas",
+text:"Taman nasional terkenal sebagai pusat konservasi gajah dan wisata edukasi di Lampung."
+},
+
+{
+title:"Puncak Mas",
+text:"Wisata alam Bandar Lampung dengan pemandangan kota dari ketinggian."
+},
+
+{
+title:"Pantai Tanjung Setia",
+text:"Pantai terkenal untuk olahraga selancar dengan ombak besar di Lampung Barat."
+},
+
+{
+title:"Museum Lampung",
+text:"Tempat wisata sejarah dan budaya yang menyimpan berbagai koleksi daerah."
+},
+
+{
+title:"Bukit Sakura",
+text:"Destinasi wisata keluarga dengan spot foto menarik dan panorama kota."
+},
+
+{
+title:"Air Terjun Putri Malu",
+text:"Wisata alam berupa air terjun dengan udara sejuk dan pemandangan hijau."
+}
+
+];
+
+// PREPROCESSING
+
+function preprocess(text){
+
+return text
+.toLowerCase()
+.replace(/[^\w\s]/g,'')
+.split(/\s+/)
+.filter(word=>word.length>1);
+
+}
+
+// VOCABULARY
+
+function getVocabulary(){
+
+let vocab=new Set();
+
+documents.forEach(doc=>{
+
+preprocess(doc.text)
+.forEach(word=>vocab.add(word));
+
+});
+
+return [...vocab];
+
+}
+
+const vocabulary=getVocabulary();
+
+// TF
+
+function tf(term,doc){
+
+const words=preprocess(doc);
+
+const count=
+words.filter(w=>w===term).length;
+
+return count/words.length;
+
+}
+
+// IDF
+
+function idf(term){
+
+let count=0;
+
+documents.forEach(doc=>{
+
+if(preprocess(doc.text)
+.includes(term))
+count++;
+
+});
+
+return Math.log(
+documents.length/(1+count)
+);
+
+}
+
+// TF-IDF VECTOR
+
+function createVector(text){
+
+return vocabulary.map(term=>
+
+tf(term,text)*idf(term)
+
+);
+
+}
+
+// COSINE SIMILARITY
+
+function cosineSimilarity(a,b){
+
+let dot=0;
+let magA=0;
+let magB=0;
+
+for(let i=0;i<a.length;i++){
+
+dot+=a[i]*b[i];
+
+magA+=a[i]*a[i];
+
+magB+=b[i]*b[i];
+
+}
+
+magA=Math.sqrt(magA);
+magB=Math.sqrt(magB);
+
+if(magA===0 || magB===0)
+return 0;
+
+return dot/(magA*magB);
+
+}
+
+// SEARCH
+
+function search(){
+
+const query=
+document
+.getElementById("query")
+.value;
+
+if(query.trim()===""){
+
+alert("Masukkan kata kunci pencarian");
+
+return;
+
+}
+
+const queryVector=
+createVector(query);
+
+let results=[];
+
+documents.forEach(doc=>{
+
+const docVector=
+createVector(doc.text);
+
+const score=
+cosineSimilarity(
+queryVector,
+docVector
+);
+
+results.push({
+
+title:doc.title,
+text:doc.text,
+score:score
+
+});
+
+});
+
+results.sort(
+(a,b)=>b.score-a.score
+);
+
+displayResults(results);
+
+}
+
+// DISPLAY
+
+function displayResults(results){
+
+let html=
+'<div class="results-grid">';
+
+let rank=1;
+
+results.forEach(result=>{
+
+if(result.score>0){
+
+html+=`
+
+<div class="card">
+
+<h2>${result.title}</h2>
+
+<span class="badge">
+🏆 Ranking #${rank}
+</span>
+
+<p>
+${result.text}
+</p>
+
+<div class="score">
+Skor Relevansi:
+${result.score.toFixed(4)}
+</div>
+
+</div>
+
+`;
+
+rank++;
+
+}
+
+});
+
+html+='</div>';
+
+if(rank===1){
+
+html=`
+
+<div class="card">
+
+<h2>Tidak ditemukan</h2>
+
+<p>
+Tidak ada dokumen yang relevan dengan query.
+</p>
+
+</div>
+
+`;
+
+}
+
+document
+.getElementById("results")
+.innerHTML=html;
+
+}
+
+</script>
+
+</body>
+</html>
